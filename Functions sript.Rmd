@@ -1,0 +1,165 @@
+```{r}
+library(httr)
+library(tidyverse)
+library(jsonlite)
+library(rvest)
+library(tidyverse)
+library(RSelenium)
+library(wdman)
+library(dplyr)
+library(tidyr)
+library(shiny)
+library(ggplot2)
+library(reshape2)
+```
+
+```{r}
+endpoint = ("https://api.covid19api.com/countries")
+r = GET(endpoint)
+stop_for_status(r)
+json <- content(r, as = "text", encoding = "UTF-8")
+summary <- fromJSON(json) 
+
+
+country_list = sort(unique(summary$Slug))
+input_country = sample(country_list,1)
+input_country
+
+lsq = as.character(list(1:28,sep = 3))
+lsq
+lsq = as.character(seq(1,28,2))
+lsq
+```
+
+```{r}
+#enter country to get data, by 5 days
+
+
+lsq_5 = function(country){  
+  lsq_1_10 = c("01","02","03","04","05","06","07","08","09")
+  lsq_2_10 = c("02","03","04","05","06","07","08","09")
+  lsq1 = c()
+  lsq2 = c()
+  lsq3 = c()
+  lsq_date = c()
+  #check by 5 days
+  check_by_5__dd1 = lsq_1_10
+  check_by_5_dd2 = lsq_2_10
+  check_by_5__dd1 = append(check_by_5__dd1, as.character(c(10:28)))
+  check_by_5_dd2 = append(check_by_5_dd2, as.character(c(10:28)))
+  #loop
+  dd2_index = 1
+  for (i in 2:5){
+    
+    for (dd1 in check_by_5__dd1){
+      mm2 = i
+      dd2 = check_by_5_dd2[dd2_index]
+      dd2_index = dd2_index+1
+      if (dd1 == "28"){
+        mm2 = i+1
+        dd2 = "01"
+        dd2_index = 1
+      }
+      
+endpoint = str_glue(("https://api.covid19api.com/country/{input}?from=2020-0{m1}-{dd1}T00:00:00Z&to=2020-0{m2}-{d2}T00:00:00Z"), 
+                          input = 'china', m1 = i, m2 = mm2, d1 = dd1, d2 = dd2)
+      #print(endpoint)}}
+      r = GET(endpoint)
+      stop_for_status(r)
+      json <- content(r, as = "text", encoding = "UTF-8")
+      summary <- fromJSON(json) %>%as.data.frame()
+      lsq = summary %>% 
+        group_by(Province)%>%
+        summarise(confirmed = max(Confirmed),
+                  dead = max(Deaths),
+                  Recovered = max(Recovered))
+      date = paste("2020-0",as.character(i),"-",as.character(dd1), "to", "2020-0",as.character(mm2),"-",as.character(dd2),sep= "")
+      sum1 = sum(lsq$confirmed)
+      sum2 = sum(lsq$dead)
+      sum3 = sum(lsq$Recovered)
+      lsq_date = append(lsq_date, date)
+      lsq1 = append(lsq1, sum1)
+      lsq2 = append(lsq2, sum2)
+      lsq3 = append(lsq3, sum3)
+    }
+    
+  }
+  lsq_final = tibble( date = lsq_date,confirmed = lsq1, death = lsq2, recovered = lsq3)%>%as.data.frame()
+  lsq_final 
+}
+#date = lsq_date,
+result = lsq_5('china')
+result
+
+require(ggplot2)
+require(reshape2)
+ggplot(melt(result), aes(value, fill = variable)) + geom_histogram(position = "dodge")+stat_bin(bins = 80)
+
+ggplot(result, aes(date,confirmed)) +
+      geom_point()+geom_line()
+hist(result$confirmed)
+qplot(result$confirmed, geom="histogram", binwidth = 2000) 
+```
+
+
+```{r}
+#enter country to get data, all
+lsq_by_all = function(country){
+endpoint = str_glue("https://api.covid19api.com/total/country/{input}", input = country)
+r = GET(endpoint)
+stop_for_status(r)
+json <- content(r, as = "text", encoding = "UTF-8")
+summary <- fromJSON(json) %>%as.data.frame()
+summary = summary %>% arrange(desc(Confirmed))
+summary[1,]
+}
+data = lsq_by_all('china')%>% select(Country,Confirmed,Deaths,Recovered,Active,Date)
+data
+#pie_try_1
+slices <- c(data$Confirmed, data$Deaths, data$Recovered, data$Active)
+lbls <- c("confirmed", "death", "recovered", "active")
+lsq = pie(slices, labels = lbls, main="covid-19")
+lsq
+#pie_try_2
+lsq = data.frame(slices, lbls)
+bp = ggplot(lsq, aes(x = 2, y = slices, fill = lbls)) +
+  geom_bar( stat = "identity", color = "white") +
+  coord_polar("y", start = 0)+
+  xlim(0.5, 2.5)
+bp
+```
+
+
+
+```{r}
+lsq_summary_all = function(){
+endpoint = ("https://api.covid19api.com/summary")
+r = GET(endpoint)
+stop_for_status(r)
+json <- content(r, as = "text", encoding = "UTF-8")
+summary <- fromJSON(json) 
+summary}
+temp = lsq_summary_all()
+df = temp$Countries %>% arrange(desc(NewConfirmed))
+df = df[1:5,]
+
+bp = ggplot(df, aes(x = 2, y = NewConfirmed, fill = Country)) +
+  geom_bar( stat = "identity", color = "white") +
+  coord_polar("y", start = 0)+
+  xlim(0.5, 2.5)
+bp
+```
+
+
+```{r}
+lsq_by_all = function(country){
+endpoint = str_glue("https://api.covid19api.com/total/country/{input}", input = country)
+r = GET(endpoint)
+stop_for_status(r)
+json <- content(r, as = "text", encoding = "UTF-8")
+summary <- fromJSON(json) %>%as.data.frame()
+summary 
+}
+data = lsq_by_all('china')
+```
+
